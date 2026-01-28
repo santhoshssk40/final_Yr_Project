@@ -1,0 +1,27 @@
+# Core
+# python>=3.9
+
+# Data handling
+pandas
+numpy
+openpyxl
+
+# Machine Learning
+scikit-learn
+joblib
+
+# NLP / BERT
+transformers
+torch
+
+# API (for next stage)
+fastapi
+uvicorn
+
+# Database
+psycopg2-binary
+sqlalchemy
+
+# Visualization (for analysis / testing)
+matplotlib
+seaborn
