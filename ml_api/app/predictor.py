@@ -1,33 +1,15 @@
-def get_user_category(features, kmeans, scaler):
-    """
-    Predicts user segment using KMeans clustering
-    """
-    scaled_features = scaler.transform([features])
-    cluster = int(kmeans.predict(scaled_features)[0])
+def get_user_cluster(features, kmeans, scaler):
+    scaled = scaler.transform([features])
+    return int(kmeans.predict(scaled)[0])
 
-    cluster_map = {
-        0: "Seasonal",
-        1: "Weekly",
-        2: "Daily"
-    }
+def predict_churn_xgb(model, features):
+    prob = model.predict_proba([features])[0][1]
 
-    return cluster_map.get(cluster, "Unknown")
-
-
-def predict_churn(model, features):
-    """
-    Predicts churn probability and assigns risk level
-    (Business-tuned thresholds)
-    """
-    # Churn probability (class 1)
-    prob = float(model.predict_proba([features])[0][1])
-
-    # 🔧 ADJUSTED RISK THRESHOLDS (important)
-    if prob >= 0.50:
-        risk = "High"
-    elif prob >= 0.25:
+    if prob < 0.3:
+        risk = "Low"
+    elif prob < 0.6:
         risk = "Medium"
     else:
-        risk = "Low"
+        risk = "High"
 
-    return round(prob, 3), risk
+    return prob, risk

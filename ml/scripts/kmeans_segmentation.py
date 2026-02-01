@@ -3,33 +3,24 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 import joblib
 
-features = pd.read_csv("outputs/customer_features.csv")
+features = pd.read_csv("ml/outputs/customer_features.csv")
 
 cluster_cols = [
-    "orders_per_month",
+    # "order_frequency",
     "avg_order_value",
     "avg_delivery_time",
     "avg_rating",
-    "discount_rate",
-    "recency_days"
+    "discount_rate"
+    # "recency_days"
 ]
 
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(features[cluster_cols])
 
 kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-features["cluster"] = kmeans.fit_predict(X_scaled)
+features["cluster_id"] = kmeans.fit_predict(X_scaled)
 
-cluster_order = features.groupby("cluster")["orders_per_month"].mean().sort_values()
-cluster_map = {
-    cluster_order.index[0]: "Seasonal",
-    cluster_order.index[1]: "Weekly",
-    cluster_order.index[2]: "Daily"
-}
+joblib.dump(kmeans, "ml/models/kmeans.pkl")
+joblib.dump(scaler, "ml/models/scaler.pkl")
 
-features["user_category"] = features["cluster"].map(cluster_map)
-
-joblib.dump(kmeans, "models/kmeans.pkl")
-joblib.dump(scaler, "models/scaler.pkl")
-
-features.to_csv("outputs/customer_segmented.csv", index=False)
+features.to_csv("ml/outputs/customer_segmented.csv", index=False)

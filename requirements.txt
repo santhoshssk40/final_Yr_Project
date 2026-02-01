@@ -1,6 +1,5 @@
 # Core
-# python>=3.9
-
+# python==3.12
 # Data handling
 pandas
 numpy
@@ -9,6 +8,7 @@ openpyxl
 # Machine Learning
 scikit-learn
 joblib
+xgboost
 
 # NLP / BERT
 transformers
