@@ -1,107 +1,70 @@
 import pandas as pd
 import joblib
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 from xgboost.callback import EarlyStopping
 from sklearn.metrics import roc_auc_score
 
-# -------------------------
-# LOAD DATA
-# -------------------------
-df = pd.read_excel("ml/data/food_delivery_churn_raw_12000.xlsx")
-df["order_date"] = pd.to_datetime(df["order_date"])
+# ----------------------------------
+# LOAD PRECOMPUTED PIPELINE OUTPUTS
+# ----------------------------------
 
-snapshot_date = df["order_date"].max() + pd.Timedelta(days=1)
+# Customer features + clusters
+df = pd.read_csv("ml/outputs/customer_segmented.csv")
 
-# -------------------------
-# FEATURE ENGINEERING
-# -------------------------
-customer_df = df.groupby("customer_id").agg(
-    total_orders=("order_id", "count"),
-    avg_order_value=("order_value", "mean"),
-    avg_delivery_time=("delivery_time_min", "mean"),
-    avg_rating=("rating", "mean"),
-    discount_rate=("discount_applied", "mean"),
-    last_order_date=("order_date", "max")
-).reset_index()
+# Churn labels (segment-aware, already done)
+labels = pd.read_csv("ml/outputs/customer_churn_labeled.csv")[["customer_id", "churn"]]
 
-customer_df["recency_days"] = (
-    snapshot_date - customer_df["last_order_date"]
-).dt.days
+# Sentiment features
+sentiment = pd.read_csv("ml/outputs/customer_sentiment.csv")
 
-# Advanced features
-customer_df["order_frequency"] = (
-    customer_df["total_orders"] / (customer_df["recency_days"] + 1)
-)
+# ----------------------------------
+# MERGE ALL SIGNALS (ONE SOURCE OF TRUTH)
+# ----------------------------------
 
-customer_df["value_per_minute"] = (
-    customer_df["avg_order_value"] / (customer_df["avg_delivery_time"] + 1)
-)
+df = df.merge(labels, on="customer_id", how="left")
+df = df.merge(sentiment, on="customer_id", how="left")
 
-customer_df["rating_discount_interaction"] = (
-    customer_df["avg_rating"] * customer_df["discount_rate"]
-)
 
-customer_df.drop(columns=["last_order_date"], inplace=True)
+# Fill missing sentiment safely
+df[["avg_sentiment", "neg_review_ratio"]] = df[
+    ["avg_sentiment", "neg_review_ratio"]
+].fillna(3)
 
-# -------------------------
-# KMEANS SEGMENTATION
-# -------------------------
-cluster_features = [
-    "avg_order_value",
-    "avg_delivery_time",
-    "avg_rating",
-    "discount_rate"
-]
+# ----------------------------------
+# MODEL FEATURES (LEAKAGE-FREE)
+# ----------------------------------
 
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(customer_df[cluster_features])
-
-kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-customer_df["cluster_id"] = kmeans.fit_predict(X_scaled)
-
-joblib.dump(kmeans, "ml/models/kmeans.pkl")
-joblib.dump(scaler, "ml/models/scaler.pkl")
-
-# -------------------------
-# CHURN LABELING (SEGMENT AWARE)
-# -------------------------
-def label_churn(row):
-    if row["cluster_id"] == 0:      # Seasonal
-        return int(row["recency_days"] > 90)
-    elif row["cluster_id"] == 1:    # Weekly
-        return int(row["recency_days"] > 45)
-    else:                           # Daily
-        return int(row["recency_days"] > 21)
-
-customer_df["churn"] = customer_df.apply(label_churn, axis=1)
-
-# -------------------------
-# XGBOOST TRAINING
-# -------------------------
-xgb_features = [
+features = [
     "avg_order_value",
     "avg_delivery_time",
     "avg_rating",
     "discount_rate",
     "value_per_minute",
     "rating_discount_interaction",
+    "avg_sentiment",
+    "neg_review_ratio",
     "cluster_id"
 ]
 
-X = customer_df[xgb_features]
-y = customer_df["churn"]
+X = df[features]
+y = df["churn"]
 
-# Time-aware split
-customer_df = customer_df.sort_values("recency_days")
-split = int(0.75 * len(customer_df))
+# ----------------------------------
+# TIME-AWARE TRAIN / TEST SPLIT
+# ----------------------------------
+
+df = df.sort_values("recency_days")
+split = int(0.75 * len(df))
 
 X_train = X.iloc[:split]
 y_train = y.iloc[:split]
 
 X_test = X.iloc[split:]
 y_test = y.iloc[split:]
+
+# ----------------------------------
+# XGBOOST MODEL (EARLY STOPPING)
+# ----------------------------------
 
 model = XGBClassifier(
     n_estimators=2000,
@@ -123,18 +86,44 @@ model.fit(
     verbose=True
 )
 
+
+# ----------------------------------
+# ADD CHURN PROBABILITY TO DATASET
+# ----------------------------------
+
+df["churn_probability"] = model.predict_proba(X)[:, 1]
+
+def map_risk(p):
+    if p < 0.3:
+        return "Low"
+    elif p < 0.6:
+        return "Medium"
+    else:
+        return "High"
+
+df["risk_level"] = df["churn_probability"].apply(map_risk)
+
+
+# ----------------------------------
+# EVALUATION
+# ----------------------------------
+
 auc = roc_auc_score(
     y_test,
     model.predict_proba(X_test)[:, 1]
 )
 
-print("XGBoost AUC:", auc)
+print("Retrained XGBoost AUC:", auc)
+
+# ----------------------------------
+# SAVE MODEL + DATASET
+# ----------------------------------
 
 joblib.dump(model, "ml/models/xgb_churn_model.pkl")
 
-customer_df.to_csv(
+df.to_csv(
     "ml/outputs/customer_level_trained_dataset.csv",
     index=False
 )
 
-print("XGBoost model retrained and saved successfully.")
+print("XGBoost model retrained using modular pipeline outputs.")

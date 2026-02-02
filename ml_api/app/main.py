@@ -7,6 +7,7 @@ from .model_loader import load_models
 from .predictor import get_user_cluster, predict_churn_xgb
 
 app = FastAPI()
+analytics_df = None
 
 # Setup CORS
 origins = [
@@ -26,52 +27,153 @@ app.add_middleware(
 # Global stats variable
 data_stats = {}
 
+
 @app.on_event("startup")
 def startup():
-    global kmeans, scaler, xgb_model, data_stats
+    global df_full, kmeans, scaler, xgb_model
+
+    global analytics_df
+    analytics_df = pd.read_csv("ml/outputs/analytics_master.csv")
+
+
     kmeans, scaler, xgb_model = load_models()
-    
-    # Load dataset to calculate stats
-    # Assuming the path relative to where uvicorn is run (usually root of final_Yr_Project)
-    # We try absolute path or relative path strategies
-    dataset_path = "ml/outputs/customer_level_trained_dataset.xlsx"
-    if not os.path.exists(dataset_path):
-        # try going up one level if run from app folder (unlikely but good fallback)
-        dataset_path = "../ml/outputs/customer_level_trained_dataset.xlsx"
-    
-    if os.path.exists(dataset_path):
-        df = pd.read_excel(dataset_path)
-        
-        # Calculate Aggregated Stats
-        churn_rate = (df["churn"].mean() * 100)
-        retention_rate = 100 - churn_rate
-        avg_customer_value = df["avg_order_value"].mean()
-        # active_customers assumed as total count for this context or those with 0 churn
-        active_customers = len(df[df["churn"] == 0]) 
-        
-        data_stats = {
-            "retention_rate": round(retention_rate, 1),
-            "avg_customer_value": round(avg_customer_value, 2),
-            "active_campaigns": 12, # Mock/Static for now
-            "support_tickets": 34, # Mock/Static for now
-            "churn_count": int(df["churn"].sum()),
-            "total_customers": len(df)
-        }
-        print(f"Loaded stats: {data_stats}")
-    else:
-        print(f"WARNING: Dataset not found at {dataset_path}")
-        data_stats = {
-            "retention_rate": 0,
-            "avg_customer_value": 0,
-            "active_campaigns": 0,
-            "support_tickets": 0,
-            "churn_count": 0,
-            "total_customers": 0
-        }
+
+    df = pd.read_excel("ml/outputs/customer_level_trained_dataset.xlsx")
+    sentiment = pd.read_csv("ml/outputs/customer_sentiment.csv")
+
+    df_full = df.merge(sentiment, on="customer_id", how="left")
+    df_full.fillna({
+        "avg_sentiment": 3,
+        "neg_review_ratio": 0
+    }, inplace=True)
+
 
 @app.get("/stats")
 def get_stats():
-    return data_stats
+    df = analytics_df
+    return {
+        "total_customers": len(df),
+        "churn_rate": round(df["churn"].mean() * 100, 2),
+        "retention_rate": round(100 - df["churn"].mean() * 100, 2),
+        "avg_customer_value": round(df["avg_order_value"].mean(), 2),
+        "high_risk_customers": int((df["churn"] == 1).sum())
+    }
+    
+
+
+@app.get("/churn/distribution")
+def churn_distribution():
+    df = analytics_df.copy()
+    df["bucket"] = pd.cut(
+        df["churn_probability"],
+        bins=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+    )
+    return df.groupby("bucket").size().reset_index(name="count").to_dict("records")
+
+
+@app.get("/churn/segments")
+def segment_analysis():
+    df = analytics_df
+    return (
+        df.groupby("cluster_id")
+        .agg(
+            customers=("customer_id","count"),
+            avg_risk=("churn_probability","mean")
+        )
+        .reset_index()
+        .to_dict("records")
+    )
+
+
+@app.get("/churn/high-risk")
+def high_risk_customers():
+    df = analytics_df
+    high = df[df["churn_probability"] > 0.7]
+
+    return high[[
+        "customer_id",
+        "avg_order_value",
+        "avg_rating",
+        "churn_probability",
+        "cluster_id"
+    ]].sort_values("churn_probability", ascending=False).head(20).to_dict("records")
+
+
+
+@app.get("/churn/geography")
+def geo_churn():
+    df = analytics_df
+    return df[[
+        "customer_id",
+        "lat",
+        "lng",
+        "region",
+        "churn_probability"
+    ]].to_dict("records")
+
+
+
+@app.get("/sentiment/summary")
+def sentiment_summary():
+    df = analytics_df
+    return {
+        "avg_sentiment": round(df["avg_sentiment"].mean(), 2),
+        "positive_pct": round((df["avg_sentiment"] >= 4).mean()*100,2),
+        "neutral_pct": round(((df["avg_sentiment"] >= 3) & (df["avg_sentiment"] < 4)).mean()*100,2),
+        "negative_pct": round((df["avg_sentiment"] < 3).mean()*100,2)
+    }
+
+
+@app.get("/sentiment/trends")
+def sentiment_distribution():
+    df = analytics_df
+    return df["avg_sentiment"].value_counts().sort_index().to_dict()
+
+
+@app.get("/sentiment/channels")
+def sentiment_by_channel():
+    df = analytics_df.copy()
+
+    # Categorize sentiment
+    df["sentiment_label"] = pd.cut(
+        df["avg_sentiment"],
+        bins=[0, 2.5, 3.5, 5],
+        labels=["negative", "neutral", "positive"]
+    )
+
+    result = []
+
+    for channel, group in df.groupby("channel"):
+        total = len(group)
+
+        result.append({
+            "channel": channel,
+            "total": total,
+            "positive": round((group["sentiment_label"] == "positive").mean() * 100, 2),
+            "neutral": round((group["sentiment_label"] == "neutral").mean() * 100, 2),
+            "negative": round((group["sentiment_label"] == "negative").mean() * 100, 2),
+        })
+
+    return result
+
+
+from .utils import get_top_features
+
+@app.get("/predict/explain")
+def explain_model():
+    features = [
+        "avg_order_value",
+        "avg_delivery_time",
+        "avg_rating",
+        "discount_rate",
+        "value_per_minute",
+        "rating_discount_interaction",
+        "avg_sentiment",
+        "neg_review_ratio",
+        "cluster_id"
+    ]
+    return get_top_features(xgb_model, features)
+
 
 @app.post("/predict/churn")
 def churn_prediction(data: ChurnRequest):
