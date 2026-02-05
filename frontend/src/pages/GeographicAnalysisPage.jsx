@@ -1,8 +1,13 @@
-import React from 'react';
 import GeographicChurnMap from '../components/GeographicChurnMap';
-import { geographicChurn } from '../data/mockData';
+import { getGeographicChurn } from '../services/api';
+import { useEffect, useState } from "react";
 
 const GeographicAnalysisPage = () => {
+  const [geo, setGeo] = useState([]);
+
+  useEffect(() => {
+    getGeographicChurn().then(setGeo);
+  }, []);
   return (
     <div className="space-y-8">
       <div>
@@ -11,7 +16,7 @@ const GeographicAnalysisPage = () => {
       </div>
 
       {/* Geographic Map */}
-      <GeographicChurnMap data={geographicChurn} />
+      <GeographicChurnMap data={geo} />
     </div>
   );
 };

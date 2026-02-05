@@ -7,10 +7,24 @@ import { useEffect, useState } from "react";
 
 const OverviewPage = () => {
   const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getStats().then(setStats);
+    const fetchStats = async () => {
+      const data = await getStats();
+      setStats(data);
+      setLoading(false);
+    };
+    fetchStats();
   }, []);
+
+  if (loading) {
+    return <div className="p-6">Loading overview...</div>;
+  }
+
+  if (!stats) {
+    return <div className="p-6 text-red-600">Failed to load stats</div>;
+  }
 
   return (
     <div className="space-y-8">

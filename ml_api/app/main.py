@@ -131,6 +131,54 @@ def geo_churn():
     ]].to_dict("records")
 
 
+@app.get("/sentiment/overview")
+def sentiment_overview():
+    df = analytics_df
+
+    avg_score = round(df["avg_sentiment"].mean(), 2)
+    total = len(df)
+
+    return {
+        "overallScore": avg_score,
+        "totalFeedback": total
+    }
+
+
+@app.get("/sentiment/breakdown")
+def sentiment_breakdown():
+    df = analytics_df
+
+    labels = pd.cut(
+        df["avg_sentiment"],
+        bins=[0, 2.5, 3.5, 5],
+        labels=["Negative", "Neutral", "Positive"]
+    )
+
+    counts = labels.value_counts().reindex(
+        ["Positive", "Neutral", "Negative"], fill_value=0
+    )
+
+    total = counts.sum()
+
+    colors = {
+        "Positive": "#22c55e",
+        "Neutral": "#eab308",
+        "Negative": "#ef4444"
+    }
+
+    result = []
+    for k, v in counts.items():
+        result.append({
+            "name": k,
+            "value": round((v / total) * 100, 2),
+            "count": int(v),
+            "fill": colors[k]
+        })
+
+    return result
+
+
+
 
 @app.get("/sentiment/summary")
 def sentiment_summary():
@@ -143,73 +191,67 @@ def sentiment_summary():
     }
 
 
-# @app.get("/sentiment/trends")
-# def sentiment_trends():
-#     df = analytics_df.copy()
-
-#     df["sentiment_label"] = pd.cut(
-#         df["avg_sentiment"],
-#         bins=[0,2.5,3.5,5],
-#         labels=["Negative","Neutral","Positive"]
-#     )
-
-#     trend = (
-#         df.groupby("sentiment_label")
-#         .size()
-#         .reset_index(name="count")
-#     )
-
-#     return trend.to_dict("records")
-
-
 @app.get("/sentiment/trends")
-def sentiment_distribution():
-    df = analytics_df
-    return df["avg_sentiment"].value_counts().sort_index().to_dict()
+def sentiment_trends():
+    df = analytics_df.copy()
+
+    df["sentiment_label"] = pd.cut(
+        df["avg_sentiment"],
+        bins=[0,2.5,3.5,5],
+        labels=["Negative","Neutral","Positive"]
+    )
+
+    trend = (
+        df.groupby("sentiment_label")
+        .size()
+        .reset_index(name="count")
+    )
+
+    return trend.to_dict("records")
 
 
-# @app.get("/sentiment/channels")
-# def sentiment_by_channel():
-#     df = analytics_df.copy()
-
-#     # Categorize sentiment
-#     df["sentiment_label"] = pd.cut(
-#         df["avg_sentiment"],
-#         bins=[0, 2.5, 3.5, 5],
-#         labels=["negative", "neutral", "positive"]
-#     )
-
-#     result = []
-
-#     for channel, group in df.groupby("channel"):
-#         total = len(group)
-
-#         result.append({
-#             "channel": channel,
-#             "total": total,
-#             "positive": round((group["sentiment_label"] == "positive").mean() * 100, 2),
-#             "neutral": round((group["sentiment_label"] == "neutral").mean() * 100, 2),
-#             "negative": round((group["sentiment_label"] == "negative").mean() * 100, 2),
-#         })
-
-#     return result
 
 
 @app.get("/sentiment/channels")
-def sentiment_channels():
-    df = analytics_df
+def sentiment_by_channel():
+    df = analytics_df.copy()
 
-    result = (
-        df.groupby("channel")
-        .agg(
-            total_feedback=("customer_id", "count"),
-            avg_sentiment=("avg_sentiment", "mean")
-        )
-        .reset_index()
+    # Categorize sentiment
+    df["sentiment_label"] = pd.cut(
+        df["avg_sentiment"],
+        bins=[0, 2.5, 3.5, 5],
+        labels=["negative", "neutral", "positive"]
     )
 
-    return result.to_dict("records")
+    result = []
 
+    for channel, group in df.groupby("channel"):
+        total = len(group)
+
+        result.append({
+            "channel": channel,
+            "total": total,
+            "positive": round((group["sentiment_label"] == "positive").mean() * 100, 2),
+            "neutral": round((group["sentiment_label"] == "neutral").mean() * 100, 2),
+            "negative": round((group["sentiment_label"] == "negative").mean() * 100, 2),
+        })
+
+    return result
+
+
+
+
+@app.get("/sentiment/words")
+def sentiment_words():
+    # Simple placeholder using complaints / reviews if available
+    # Replace with NLP later
+    return [
+        {"word": "delay", "count": 120},
+        {"word": "support", "count": 98},
+        {"word": "refund", "count": 75},
+        {"word": "quality", "count": 64},
+        {"word": "price", "count": 52}
+    ]
 
 
 from .utils import get_top_features

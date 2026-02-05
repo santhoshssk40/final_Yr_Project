@@ -2,14 +2,40 @@ import SectionCard from "./SectionCard";
 import { ArrowUpDown } from "lucide-react";
 import { useMemo, useState } from "react";
 
-const HighRiskTable = ({ data }) => {
+const HighRiskTable = ({ data = [] }) => {
   const [sortAsc, setSortAsc] = useState(false);
 
+  // ✅ Normalize backend data safely
+  const normalized = useMemo(() => {
+    if (!Array.isArray(data)) return [];
+
+    return data.map((c, idx) => ({
+      id: c.customer_id ?? idx,
+      name: c.customer_name ?? "Customer",
+      customerId: c.customer_id ?? "—",
+      churnRisk: Math.round((c.churn_probability ?? 0) * 100),
+      causes: c.causes ?? ["Low engagement", "Negative sentiment"],
+      recommendation:
+        c.recommendation ??
+        (c.churn_probability > 0.7
+          ? "Immediate retention offer"
+          : "Monitor closely"),
+    }));
+  }, [data]);
+
+  if (normalized.length === 0) {
+    return (
+      <SectionCard title="High-Risk Customers">
+        <p className="text-gray-500">No high-risk customers found</p>
+      </SectionCard>
+    );
+  }
+
   const sorted = useMemo(() => {
-    return [...data].sort((a, b) =>
+    return [...normalized].sort((a, b) =>
       sortAsc ? a.churnRisk - b.churnRisk : b.churnRisk - a.churnRisk
     );
-  }, [data, sortAsc]);
+  }, [normalized, sortAsc]);
 
   return (
     <SectionCard title="High-Risk Customers">

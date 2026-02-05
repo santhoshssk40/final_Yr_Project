@@ -8,8 +8,12 @@ const PredictionPage = () => {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: Number(e.target.value) });
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: Number(e.target.value),
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,8 +35,10 @@ const PredictionPage = () => {
               "avg_delivery_time",
               "avg_rating",
               "discount_rate",
-              "recency_days",
+              "value_per_minute",
+              "rating_discount_interaction",
               "avg_sentiment",
+              "neg_review_ratio",
             ].map((f) => (
               <input
                 key={f}

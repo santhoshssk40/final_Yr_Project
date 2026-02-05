@@ -1,53 +1,39 @@
-import React from 'react';
-import SectionCard from './SectionCard';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import SectionCard from "./SectionCard";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
-const SentimentTrend = ({ data }) => {
+const SentimentTrend = ({ data = [] }) => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <SectionCard title="Sentiment Trend">
+        <p className="text-gray-500 text-center py-12">
+          No sentiment trend data available
+        </p>
+      </SectionCard>
+    );
+  }
+
   return (
-    <SectionCard title="Sentiment Trend Overview">
+    <SectionCard title="Sentiment Trend">
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={data}>
+        <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis 
-            dataKey="date" 
-            tick={{ fill: '#6b7280', fontSize: 12 }}
+          <XAxis dataKey="sentiment_label" />
+          <YAxis />
+          <Tooltip />
+          <Bar
+            dataKey="count"
+            fill="#3b82f6"
+            radius={[6, 6, 0, 0]}
           />
-          <YAxis 
-            tick={{ fill: '#6b7280', fontSize: 12 }}
-            label={{ value: 'No. of Comments', angle: -90, position: 'insideLeft', style: { fill: '#6b7280' } }}
-          />
-          <Tooltip 
-            contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-          />
-          <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="positive" 
-            stroke="#22c55e" 
-            strokeWidth={2}
-            name="Positive"
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="neutral" 
-            stroke="#eab308" 
-            strokeWidth={2}
-            name="Neutral"
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="negative" 
-            stroke="#ef4444" 
-            strokeWidth={2}
-            name="Negative"
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
+        </BarChart>
       </ResponsiveContainer>
     </SectionCard>
   );

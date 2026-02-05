@@ -1,8 +1,10 @@
-import React from 'react';
 import SectionCard from './SectionCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const WordFrequency = ({ data }) => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return <p className="text-gray-500">No frequent words found</p>;
+  }
   return (
     <SectionCard title="Word Frequency by Sentiment">
       <ResponsiveContainer width="100%" height={300}>

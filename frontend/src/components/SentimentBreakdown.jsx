@@ -1,8 +1,14 @@
-import React from 'react';
 import SectionCard from './SectionCard';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
-const SentimentBreakdown = ({ data }) => {
+const SentimentBreakdown = ({ data = []}) => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <SectionCard title="Sentiment Breakdown">
+        <p className="text-gray-500 text-center py-10">No sentiment breakdown available</p>
+      </SectionCard>
+    );
+  }
   const RADIAN = Math.PI / 180;
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;

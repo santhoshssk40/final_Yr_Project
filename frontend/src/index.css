@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* CSS variables */
+/* :root {
   --color-primary: #3b82f6;
   --color-success: #22c55e;
   --color-warning: #eab308;
@@ -12,6 +13,13 @@
   --color-text: #111827;
   --color-text-muted: #6b7280;
 }
+
+/* Reset */
+/* * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+} */ */
 
 body {
   font-family: "Inter", system-ui, sans-serif;
