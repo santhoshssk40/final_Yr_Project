@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-df = pd.read_excel("ml/outputs/customer_level_trained_dataset.xlsx")
+df = pd.read_csv("ml/outputs/customer_level_trained_dataset.csv")
 
 churn_rates = df.groupby("user_category")["churn"].mean()
 

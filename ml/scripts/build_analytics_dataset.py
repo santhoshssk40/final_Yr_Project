@@ -28,6 +28,12 @@ df = base.merge(sentiment, on="customer_id", how="left")
 # ---------------------------
 df["avg_sentiment"] = df["avg_sentiment"].fillna(3)
 df["neg_review_ratio"] = df["neg_review_ratio"].fillna(0)
+df["channel"] = np.random.choice(
+    ["Email", "Chat", "Social"],
+    size=len(df),
+    p=[0.4, 0.35, 0.25]
+)
+
 
 # ---------------------------
 # ADD GEOGRAPHY (SYNTHETIC)

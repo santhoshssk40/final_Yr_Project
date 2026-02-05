@@ -35,10 +35,9 @@ def startup():
     global analytics_df
     analytics_df = pd.read_csv("ml/outputs/analytics_master.csv")
 
-
     kmeans, scaler, xgb_model = load_models()
 
-    df = pd.read_excel("ml/outputs/customer_level_trained_dataset.xlsx")
+    df = pd.read_csv("ml/outputs/customer_level_trained_dataset.csv")
     sentiment = pd.read_csv("ml/outputs/customer_sentiment.csv")
 
     df_full = df.merge(sentiment, on="customer_id", how="left")
@@ -64,11 +63,27 @@ def get_stats():
 @app.get("/churn/distribution")
 def churn_distribution():
     df = analytics_df.copy()
+
+    bins = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+    labels = [
+        "0–10%", "10–20%", "20–30%", "30–40%", "40–50%",
+        "50–60%", "60–70%", "70–80%", "80–90%", "90–100%"
+    ]
+
     df["bucket"] = pd.cut(
         df["churn_probability"],
-        bins=[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+        bins=bins,
+        labels=labels,
+        include_lowest=True
     )
-    return df.groupby("bucket").size().reset_index(name="count").to_dict("records")
+
+    result = (
+        df.groupby("bucket", observed=True)
+        .size()
+        .reset_index(name="count")
+    )
+
+    return result.to_dict("records")
 
 
 @app.get("/churn/segments")
@@ -87,8 +102,12 @@ def segment_analysis():
 
 @app.get("/churn/high-risk")
 def high_risk_customers():
-    df = analytics_df
-    high = df[df["churn_probability"] > 0.7]
+    df = analytics_df.copy()
+
+    high = df.sort_values(
+        "churn_probability",
+        ascending=False
+    ).head(20)
 
     return high[[
         "customer_id",
@@ -96,7 +115,7 @@ def high_risk_customers():
         "avg_rating",
         "churn_probability",
         "cluster_id"
-    ]].sort_values("churn_probability", ascending=False).head(20).to_dict("records")
+    ]].to_dict("records")
 
 
 
@@ -124,37 +143,73 @@ def sentiment_summary():
     }
 
 
+# @app.get("/sentiment/trends")
+# def sentiment_trends():
+#     df = analytics_df.copy()
+
+#     df["sentiment_label"] = pd.cut(
+#         df["avg_sentiment"],
+#         bins=[0,2.5,3.5,5],
+#         labels=["Negative","Neutral","Positive"]
+#     )
+
+#     trend = (
+#         df.groupby("sentiment_label")
+#         .size()
+#         .reset_index(name="count")
+#     )
+
+#     return trend.to_dict("records")
+
+
 @app.get("/sentiment/trends")
 def sentiment_distribution():
     df = analytics_df
     return df["avg_sentiment"].value_counts().sort_index().to_dict()
 
 
-@app.get("/sentiment/channels")
-def sentiment_by_channel():
-    df = analytics_df.copy()
+# @app.get("/sentiment/channels")
+# def sentiment_by_channel():
+#     df = analytics_df.copy()
 
-    # Categorize sentiment
-    df["sentiment_label"] = pd.cut(
-        df["avg_sentiment"],
-        bins=[0, 2.5, 3.5, 5],
-        labels=["negative", "neutral", "positive"]
+#     # Categorize sentiment
+#     df["sentiment_label"] = pd.cut(
+#         df["avg_sentiment"],
+#         bins=[0, 2.5, 3.5, 5],
+#         labels=["negative", "neutral", "positive"]
+#     )
+
+#     result = []
+
+#     for channel, group in df.groupby("channel"):
+#         total = len(group)
+
+#         result.append({
+#             "channel": channel,
+#             "total": total,
+#             "positive": round((group["sentiment_label"] == "positive").mean() * 100, 2),
+#             "neutral": round((group["sentiment_label"] == "neutral").mean() * 100, 2),
+#             "negative": round((group["sentiment_label"] == "negative").mean() * 100, 2),
+#         })
+
+#     return result
+
+
+@app.get("/sentiment/channels")
+def sentiment_channels():
+    df = analytics_df
+
+    result = (
+        df.groupby("channel")
+        .agg(
+            total_feedback=("customer_id", "count"),
+            avg_sentiment=("avg_sentiment", "mean")
+        )
+        .reset_index()
     )
 
-    result = []
+    return result.to_dict("records")
 
-    for channel, group in df.groupby("channel"):
-        total = len(group)
-
-        result.append({
-            "channel": channel,
-            "total": total,
-            "positive": round((group["sentiment_label"] == "positive").mean() * 100, 2),
-            "neutral": round((group["sentiment_label"] == "neutral").mean() * 100, 2),
-            "negative": round((group["sentiment_label"] == "negative").mean() * 100, 2),
-        })
-
-    return result
 
 
 from .utils import get_top_features
