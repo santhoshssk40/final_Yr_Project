@@ -1,36 +1,27 @@
-import KPICard from "./KPICard";
-import { Users, AlertTriangle, TrendingDown, DollarSign } from "lucide-react";
-
-const KPISummary = ({ data }) => {
+function KPISummary({ result }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      <KPICard
-        icon={Users}
-        label="Total Customers"
-        value={data.totalCustomers}
-        change={data.totalCustomersChange}
-      />
-      <KPICard
-        icon={AlertTriangle}
-        label="At-Risk Customers"
-        value={data.atRiskCustomers}
-        change={data.atRiskCustomersChange}
-      />
-      <KPICard
-        icon={TrendingDown}
-        label="Churn Rate"
-        value={data.churnRate}
-        suffix="%"
-        change={data.churnRateChange}
-      />
-      <KPICard
-        icon={DollarSign}
-        label="Monthly Revenue"
-        value={`$${data.mrr}K`}
-        change={data.mrrChange}
-      />
+    <div className="kpi-grid">
+      <div className="kpi-card">
+        <h3>User Category</h3>
+        <p>{result.user_category}</p>
+      </div>
+
+      <div className="kpi-card">
+        <h3>Churn Probability</h3>
+        <p>{(result.churn_probability * 100).toFixed(1)}%</p>
+      </div>
+
+      <div className="kpi-card">
+        <h3>Risk Level</h3>
+        <p>{result.risk_level}</p>
+      </div>
+
+      <div className="kpi-card">
+        <h3>Retention Rate</h3>
+        <p>{(100 - result.churn_probability * 100).toFixed(1)}%</p>
+      </div>
     </div>
   );
-};
+}
 
 export default KPISummary;

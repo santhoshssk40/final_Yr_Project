@@ -1,19 +1,21 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List
 import pandas as pd
 import os
+
 from .schemas import ChurnRequest
 from .model_loader import load_models
 from .predictor import get_user_cluster, predict_churn_xgb
 
 app = FastAPI()
-analytics_df = None
 
+# ---------------------------
 # Setup CORS
+# ---------------------------
 origins = [
-    "http://localhost:5173", # Vite default
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "*" # Allow all for development convenience
 ]
 
 app.add_middleware(
@@ -24,269 +26,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global stats variable
-data_stats = {}
+# ---------------------------
+# Load Models
+# ---------------------------
+model, scaler, kmeans = load_models()
 
-
-@app.on_event("startup")
-def startup():
-    global df_full, kmeans, scaler, xgb_model
-
-    global analytics_df
-    analytics_df = pd.read_csv("ml/outputs/analytics_master.csv")
-
-    kmeans, scaler, xgb_model = load_models()
-
-    df = pd.read_csv("ml/outputs/customer_level_trained_dataset.csv")
-    sentiment = pd.read_csv("ml/outputs/customer_sentiment.csv")
-
-    df_full = df.merge(sentiment, on="customer_id", how="left")
-    df_full.fillna({
-        "avg_sentiment": 3,
-        "neg_review_ratio": 0
-    }, inplace=True)
-
-
-@app.get("/stats")
-def get_stats():
-    df = analytics_df
-    return {
-        "total_customers": len(df),
-        "churn_rate": round(df["churn"].mean() * 100, 2),
-        "retention_rate": round(100 - df["churn"].mean() * 100, 2),
-        "avg_customer_value": round(df["avg_order_value"].mean(), 2),
-        "high_risk_customers": int((df["churn"] == 1).sum())
-    }
-    
-
-
-@app.get("/churn/distribution")
-def churn_distribution():
-    df = analytics_df.copy()
-
-    bins = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
-    labels = [
-        "0–10%", "10–20%", "20–30%", "30–40%", "40–50%",
-        "50–60%", "60–70%", "70–80%", "80–90%", "90–100%"
-    ]
-
-    df["bucket"] = pd.cut(
-        df["churn_probability"],
-        bins=bins,
-        labels=labels,
-        include_lowest=True
-    )
-
-    result = (
-        df.groupby("bucket", observed=True)
-        .size()
-        .reset_index(name="count")
-    )
-
-    return result.to_dict("records")
-
-
-@app.get("/churn/segments")
-def segment_analysis():
-    df = analytics_df
-    return (
-        df.groupby("cluster_id")
-        .agg(
-            customers=("customer_id","count"),
-            avg_risk=("churn_probability","mean")
-        )
-        .reset_index()
-        .to_dict("records")
-    )
-
-
-@app.get("/churn/high-risk")
-def high_risk_customers():
-    df = analytics_df.copy()
-
-    high = df.sort_values(
-        "churn_probability",
-        ascending=False
-    ).head(20)
-
-    return high[[
-        "customer_id",
-        "avg_order_value",
-        "avg_rating",
-        "churn_probability",
-        "cluster_id"
-    ]].to_dict("records")
-
-
-
-@app.get("/churn/geography")
-def geo_churn():
-    df = analytics_df
-    return df[[
-        "customer_id",
-        "lat",
-        "lng",
-        "region",
-        "churn_probability"
-    ]].to_dict("records")
-
-
-@app.get("/sentiment/overview")
-def sentiment_overview():
-    df = analytics_df
-
-    avg_score = round(df["avg_sentiment"].mean(), 2)
-    total = len(df)
-
-    return {
-        "overallScore": avg_score,
-        "totalFeedback": total
-    }
-
-
-@app.get("/sentiment/breakdown")
-def sentiment_breakdown():
-    df = analytics_df
-
-    labels = pd.cut(
-        df["avg_sentiment"],
-        bins=[0, 2.5, 3.5, 5],
-        labels=["Negative", "Neutral", "Positive"]
-    )
-
-    counts = labels.value_counts().reindex(
-        ["Positive", "Neutral", "Negative"], fill_value=0
-    )
-
-    total = counts.sum()
-
-    colors = {
-        "Positive": "#22c55e",
-        "Neutral": "#eab308",
-        "Negative": "#ef4444"
-    }
-
-    result = []
-    for k, v in counts.items():
-        result.append({
-            "name": k,
-            "value": round((v / total) * 100, 2),
-            "count": int(v),
-            "fill": colors[k]
-        })
-
-    return result
-
-
-
-
-@app.get("/sentiment/summary")
-def sentiment_summary():
-    df = analytics_df
-    return {
-        "avg_sentiment": round(df["avg_sentiment"].mean(), 2),
-        "positive_pct": round((df["avg_sentiment"] >= 4).mean()*100,2),
-        "neutral_pct": round(((df["avg_sentiment"] >= 3) & (df["avg_sentiment"] < 4)).mean()*100,2),
-        "negative_pct": round((df["avg_sentiment"] < 3).mean()*100,2)
-    }
-
-
-@app.get("/sentiment/trends")
-def sentiment_trends():
-    df = analytics_df.copy()
-
-    df["sentiment_label"] = pd.cut(
-        df["avg_sentiment"],
-        bins=[0,2.5,3.5,5],
-        labels=["Negative","Neutral","Positive"]
-    )
-
-    trend = (
-        df.groupby("sentiment_label")
-        .size()
-        .reset_index(name="count")
-    )
-
-    return trend.to_dict("records")
-
-
-
-
-@app.get("/sentiment/channels")
-def sentiment_by_channel():
-    df = analytics_df.copy()
-
-    # Categorize sentiment
-    df["sentiment_label"] = pd.cut(
-        df["avg_sentiment"],
-        bins=[0, 2.5, 3.5, 5],
-        labels=["negative", "neutral", "positive"]
-    )
-
-    result = []
-
-    for channel, group in df.groupby("channel"):
-        total = len(group)
-
-        result.append({
-            "channel": channel,
-            "total": total,
-            "positive": round((group["sentiment_label"] == "positive").mean() * 100, 2),
-            "neutral": round((group["sentiment_label"] == "neutral").mean() * 100, 2),
-            "negative": round((group["sentiment_label"] == "negative").mean() * 100, 2),
-        })
-
-    return result
-
-
-
-
-@app.get("/sentiment/words")
-def sentiment_words():
-    # Simple placeholder using complaints / reviews if available
-    # Replace with NLP later
-    return [
-        {"word": "delay", "count": 120},
-        {"word": "support", "count": 98},
-        {"word": "refund", "count": 75},
-        {"word": "quality", "count": 64},
-        {"word": "price", "count": 52}
-    ]
-
-
-from .utils import get_top_features
-
-@app.get("/predict/explain")
-def explain_model():
-    features = [
-        "avg_order_value",
-        "avg_delivery_time",
-        "avg_rating",
-        "discount_rate",
-        "value_per_minute",
-        "rating_discount_interaction",
-        "avg_sentiment",
-        "neg_review_ratio",
-        "cluster_id"
-    ]
-    return get_top_features(xgb_model, features)
-
-
+# ---------------------------
+# Single Prediction Endpoint
+# ---------------------------
 @app.post("/predict/churn")
-def churn_prediction(data: ChurnRequest):
+def predict_churn(data: ChurnRequest):
 
-    # KMeans features
-    cluster_features = [
-        data.avg_order_value,
-        data.avg_delivery_time,
-        data.avg_rating,
-        data.discount_rate
-    ]
-
-    cluster_id = get_user_cluster(cluster_features, kmeans, scaler)
-
-    # XGBoost features (MUST MATCH TRAINING)
-    xgb_features = [
+    features = [
         data.avg_order_value,
         data.avg_delivery_time,
         data.avg_rating,
@@ -294,14 +45,47 @@ def churn_prediction(data: ChurnRequest):
         data.value_per_minute,
         data.rating_discount_interaction,
         data.avg_sentiment,
-        data.neg_review_ratio,
-        cluster_id
+        data.neg_review_ratio
     ]
 
-    prob, risk = predict_churn_xgb(xgb_model, xgb_features)
+    cluster_id = get_user_cluster(features, kmeans, scaler)
+    churn_probability, risk_level = predict_churn_xgb(model, features)
 
     return {
         "cluster_id": cluster_id,
-        "churn_probability": prob,
-        "risk_level": risk
+        "churn_probability": round(churn_probability, 4),
+        "risk_level": risk_level
     }
+
+# ---------------------------
+# Batch Prediction Endpoint
+# ---------------------------
+@app.post("/predict/batch")
+def predict_batch(data: List[ChurnRequest]):
+
+    results = []
+
+    for customer in data:
+        features = [
+            customer.avg_order_value,
+            customer.avg_delivery_time,
+            customer.avg_rating,
+            customer.discount_rate,
+            customer.value_per_minute,
+            customer.rating_discount_interaction,
+            customer.avg_sentiment,
+            customer.neg_review_ratio
+        ]
+
+        cluster_id = get_user_cluster(features, kmeans, scaler)
+        churn_probability, risk_level = predict_churn_xgb(model, features)
+
+        results.append({
+            "customer_id": getattr(customer, "customer_id", None),
+            "cluster_id": cluster_id,
+            "churn_probability": round(churn_probability, 4),
+            "risk_level": risk_level
+        })
+
+    return results
+
