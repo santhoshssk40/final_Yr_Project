@@ -1,17 +1,12 @@
 import { RadialBarChart, RadialBar, ResponsiveContainer } from "recharts";
 
-function ChurnGauge({ value }) {
-  const data = [
-    {
-      name: "Churn",
-      value: value * 100,
-      fill: value > 0.6 ? "#ef4444" : value > 0.3 ? "#eab308" : "#22c55e",
-    },
-  ];
+export default function ChurnGauge({ value = 0.65 }) {
+  const data = [{ name: "Churn", value: value * 100 }];
 
   return (
-    <div className="bg-gray-800 p-6 rounded-xl">
-      <h3 className="text-lg mb-4">Churn Risk Gauge</h3>
+    <div className="bg-white p-6 rounded-xl shadow-md">
+      <h3 className="text-gray-700 font-semibold mb-4">Churn Risk Gauge</h3>
+
       <ResponsiveContainer width="100%" height={250}>
         <RadialBarChart
           innerRadius="70%"
@@ -20,14 +15,19 @@ function ChurnGauge({ value }) {
           startAngle={180}
           endAngle={0}
         >
-          <RadialBar dataKey="value" />
+          <RadialBar
+            minAngle={15}
+            background
+            clockWise
+            dataKey="value"
+            fill="#22c55e"
+          />
         </RadialBarChart>
       </ResponsiveContainer>
-      <p className="text-center text-xl font-bold mt-4">
-        {(value * 100).toFixed(1)}%
-      </p>
+
+      <div className="text-center text-xl font-bold text-gray-800">
+        {Math.round(value * 100)}%
+      </div>
     </div>
   );
 }
-
-export default ChurnGauge;

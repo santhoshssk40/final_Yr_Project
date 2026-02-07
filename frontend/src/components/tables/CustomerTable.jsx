@@ -1,68 +1,49 @@
-import { useState } from "react";
-
-export default function CustomerTable() {
-  const [search, setSearch] = useState("");
-
-  const sampleCustomers = [
-    { id: 101, name: "Arjun Kumar", risk: "High", churn: 0.82 },
-    { id: 102, name: "Priya Sharma", risk: "Medium", churn: 0.54 },
-    { id: 103, name: "Rahul Verma", risk: "Low", churn: 0.12 },
-    { id: 104, name: "Anjali Rao", risk: "High", churn: 0.75 },
-  ];
-
-  const filtered = sampleCustomers.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const riskColor = (risk) => {
-    if (risk === "High") return "bg-red-500/20 text-red-400";
-    if (risk === "Medium") return "bg-yellow-500/20 text-yellow-400";
-    return "bg-green-500/20 text-green-400";
-  };
-
+export default function CustomerTable({ data }) {
   return (
-    <div className="bg-[#1e293b] p-6 rounded-xl shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold text-white">
-          Customer Risk Table
-        </h3>
-
-        <input
-          type="text"
-          placeholder="Search customer..."
-          className="px-4 py-2 rounded-lg bg-[#0f172a] text-white border border-gray-700"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <table className="w-full text-left">
-        <thead>
-          <tr className="text-gray-400 border-b border-gray-700">
-            <th className="py-3">ID</th>
-            <th>Name</th>
-            <th>Churn %</th>
-            <th>Risk Level</th>
+    <div className="card p-6 overflow-x-auto">
+      <table className="w-full text-left text-sm text-gray-300">
+        <thead className="text-xs uppercase text-gray-400 border-b border-gray-600">
+          <tr>
+            <th className="py-3">Customer ID</th>
+            <th>Order Value</th>
+            <th>Delivery Time</th>
+            <th>Rating</th>
+            <th>Churn Probability</th>
+            <th>Risk</th>
           </tr>
         </thead>
 
         <tbody>
-          {filtered.map((customer) => (
+          {data.map((c) => (
             <tr
-              key={customer.id}
-              className="border-b border-gray-800 hover:bg-[#0f172a] transition"
+              key={c.customer_id}
+              className="border-b border-gray-700 hover:bg-gray-800 transition"
             >
-              <td className="py-3">{customer.id}</td>
-              <td>{customer.name}</td>
-              <td>{(customer.churn * 100).toFixed(1)}%</td>
+              <td className="py-3">{c.customer_id}</td>
+              <td>${c.avg_order_value.toFixed(0)}</td>
+              <td>{c.avg_delivery_time.toFixed(0)} min</td>
+              <td>{c.avg_rating.toFixed(1)}</td>
               <td>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm ${riskColor(
-                    customer.risk
-                  )}`}
-                >
-                  {customer.risk}
-                </span>
+                {c.churn_probability
+                  ? (c.churn_probability * 100).toFixed(1) + "%"
+                  : "--"}
+              </td>
+              <td>
+                {c.risk_level ? (
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      c.risk_level === "High"
+                        ? "bg-red-500/20 text-red-400"
+                        : c.risk_level === "Medium"
+                        ? "bg-yellow-500/20 text-yellow-400"
+                        : "bg-green-500/20 text-green-400"
+                    }`}
+                  >
+                    {c.risk_level}
+                  </span>
+                ) : (
+                  "--"
+                )}
               </td>
             </tr>
           ))}

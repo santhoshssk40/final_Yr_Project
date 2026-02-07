@@ -3,35 +3,40 @@ import {
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from "recharts";
 
-function ChurnTrend() {
-  const data = [
-    { month: "Jan", risk: 12 },
-    { month: "Feb", risk: 18 },
-    { month: "Mar", risk: 22 },
-    { month: "Apr", risk: 16 },
-    { month: "May", risk: 24 },
-    { month: "Jun", risk: 28 }
-  ];
+const data = [
+  { month: "Jan", value: 0.4 },
+  { month: "Feb", value: 0.5 },
+  { month: "Mar", value: 0.45 },
+  { month: "Apr", value: 0.6 },
+  { month: "May", value: 0.55 },
+  { month: "Jun", value: 0.65 },
+];
 
+export default function ChurnTrend() {
   return (
-    <div className="card">
-      <h3>Churn Trend</h3>
+    <div className="bg-white p-6 rounded-xl shadow-md">
+      <h3 className="text-gray-700 font-semibold mb-4">
+        Churn Trend
+      </h3>
+
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
           <YAxis />
           <Tooltip />
-          <Line type="monotone" dataKey="risk" stroke="#3b82f6" />
+          <Line
+            type="monotone"
+            dataKey="value"
+            stroke="#3b82f6"
+            strokeWidth={3}
+            animationDuration={1500}
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
-
-export default ChurnTrend;

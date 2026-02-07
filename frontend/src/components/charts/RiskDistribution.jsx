@@ -3,42 +3,36 @@ import {
   Bar,
   XAxis,
   YAxis,
+  Tooltip,
   ResponsiveContainer,
-  Cell
 } from "recharts";
 
-function RiskDistribution({ riskLevel }) {
-  const data = [
-    { level: "Low", count: 1 },
-    { level: "Medium", count: 1 },
-    { level: "High", count: 1 }
-  ];
+const data = [
+  { risk: "Low", value: 40 },
+  { risk: "Medium", value: 35 },
+  { risk: "High", value: 25 },
+];
 
-  const getColor = (level) => {
-    if (level === riskLevel) return "#ef4444";
-    return "#1e293b";
-  };
-
+export default function RiskDistribution() {
   return (
-    <div className="card">
-      <h3>Risk Distribution</h3>
+    <div className="bg-white p-6 rounded-xl shadow-md">
+      <h3 className="text-gray-700 font-semibold mb-4">
+        Risk Distribution
+      </h3>
 
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data}>
-          <XAxis dataKey="level" />
-          <YAxis hide />
-          <Bar dataKey="count">
-            {data.map((entry, index) => (
-              <Cell
-                key={index}
-                fill={getColor(entry.level)}
-              />
-            ))}
-          </Bar>
+          <XAxis dataKey="risk" />
+          <YAxis />
+          <Tooltip />
+          <Bar
+            dataKey="value"
+            fill="#3b82f6"
+            radius={[6, 6, 0, 0]}
+            animationDuration={1000}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
-
-export default RiskDistribution;

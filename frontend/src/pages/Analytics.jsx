@@ -1,20 +1,33 @@
-import ChurnTrend from "../components/charts/ChurnTrend";
-import RiskDistribution from "../components/charts/RiskDistribution";
-import SegmentScatter from "../components/charts/SegmentScatter";
+import { motion } from "framer-motion";
+
+import SentimentKPIs from "../components/sentiment/SentimentKPIs";
+import SentimentTrend from "../components/sentiment/SentimentTrend";
+import ChannelDonuts from "../components/sentiment/ChannelDonuts";
+import TopThemes from "../components/sentiment/TopThemes";
+import WordFrequency from "../components/sentiment/WordFrequency";
 
 export default function Analytics() {
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-white">
-        Advanced Churn Analytics
-      </h1>
+    <div className="space-y-10">
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChurnTrend />
-        <RiskDistribution riskLevel="Medium" />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <SentimentKPIs />
+      </motion.div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <SentimentTrend />
+        <ChannelDonuts />
       </div>
 
-      <SegmentScatter />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <TopThemes />
+        <WordFrequency />
+      </div>
+
     </div>
   );
 }

@@ -4,30 +4,35 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from "recharts";
 
-function SegmentScatter() {
-  const data = [
-    { spend: 400, churn: 15 },
-    { spend: 800, churn: 25 },
-    { spend: 1200, churn: 35 },
-    { spend: 600, churn: 18 }
-  ];
+const data = [
+  { x: 100, y: 30 },
+  { x: 200, y: 50 },
+  { x: 300, y: 70 },
+  { x: 400, y: 60 },
+];
 
+export default function SegmentScatter() {
   return (
-    <div className="card">
-      <h3>Segments vs Churn</h3>
+    <div className="bg-white p-6 rounded-xl shadow-md">
+      <h3 className="text-gray-700 font-semibold mb-4">
+        Segment Risk Scatter
+      </h3>
+
       <ResponsiveContainer width="100%" height={300}>
         <ScatterChart>
-          <XAxis dataKey="spend" name="Spending" />
-          <YAxis dataKey="churn" name="Churn %" />
+          <XAxis type="number" dataKey="x" name="Spending" />
+          <YAxis type="number" dataKey="y" name="Risk" />
           <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-          <Scatter data={data} fill="#6366f1" />
+          <Scatter
+            data={data}
+            fill="#f59e0b"
+            animationDuration={1200}
+          />
         </ScatterChart>
       </ResponsiveContainer>
     </div>
   );
 }
-
-export default SegmentScatter;

@@ -1,40 +1,36 @@
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer
-} from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
-function ChurnDonut({ value }) {
-  const percentage = value * 100;
-
+export default function ChurnDonut({ value = 0.65 }) {
   const data = [
-    { name: "Churn", value: percentage },
-    { name: "Retention", value: 100 - percentage }
+    { name: "Churn", value: value },
+    { name: "Retained", value: 1 - value },
   ];
 
   const COLORS = ["#ef4444", "#22c55e"];
 
   return (
-    <div className="card">
-      <h3>Churn vs Retention</h3>
+    <div className="bg-white p-6 rounded-xl shadow-md">
+      <h3 className="text-gray-700 font-semibold mb-4">
+        Churn Distribution
+      </h3>
 
       <ResponsiveContainer width="100%" height={250}>
         <PieChart>
           <Pie
             data={data}
-            dataKey="value"
             innerRadius={70}
             outerRadius={100}
+            paddingAngle={5}
+            dataKey="value"
+            animationDuration={1200}
           >
-            {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i]} />
+            {data.map((entry, index) => (
+              <Cell key={index} fill={COLORS[index]} />
             ))}
           </Pie>
+          <Tooltip />
         </PieChart>
       </ResponsiveContainer>
     </div>
   );
 }
-
-export default ChurnDonut;
